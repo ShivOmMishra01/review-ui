@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Image Audit Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Top Bar -->
+    <header class="topbar">
+        <input type="file" id="csvInput" accept=".csv" />
+        <span id="status"></span>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="workspace">
+
+        <!-- IMAGE PANEL -->
+        <div class="image-panel">
+            <div class="image-container">
+                <img id="imageViewer" />
+            </div>
+
+            <div class="image-footer">
+                <span id="counter"></span>
+                <a id="imageLink" target="_blank"></a>
+            </div>
+
+            <div class="nav">
+                <button id="prevBtn">◀ Prev</button>
+                <button id="nextBtn">Next ▶</button>
+            </div>
+        </div>
+
+        <!-- CONTROL PANEL -->
+        <aside class="control-panel">
+
+            <h3>Annotations</h3>
+            <label><input type="checkbox" id="scratch"> Scratch</label>
+            <label><input type="checkbox" id="crack"> Crack</label>
+            <label><input type="checkbox" id="needsReview"> Needs Review</label>
+
+            <h3>Image Adjustments</h3>
+
+            <label>Brightness
+                <input type="range" id="brightness" min="50" max="150" value="100">
+            </label>
+
+            <label>Contrast
+                <input type="range" id="contrast" min="50" max="150" value="100">
+            </label>
+
+            <label>Saturation
+                <input type="range" id="saturation" min="0" max="200" value="100">
+            </label>
+
+            <label>Gamma
+                <input type="range" id="gamma" min="50" max="200" value="100">
+            </label>
+
+            <button id="resetFiltersBtn">Reset Filters</button>
+
+            <h3>Export</h3>
+            <button id="downloadBtn">Download CSV</button>
+
+        </aside>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
