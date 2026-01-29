@@ -153,3 +153,58 @@ document.getElementById("downloadBtn").onclick = () => {
     a.download = "audit_results.csv";
     a.click();
 };
+
+let isDragging = false;
+let startX = 0;
+let startY = 0;
+let translateX = 0;
+let translateY = 0;
+
+// Mouse drag pan
+imageViewer.addEventListener("mousedown", (e) => {
+    if (!imageViewer.classList.contains("zoomed")) return;
+
+    isDragging = true;
+    startX = e.clientX - translateX;
+    startY = e.clientY - translateY;
+    imageViewer.style.cursor = "grabbing";
+});
+
+document.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    if (!imageViewer.classList.contains("zoomed")) return;
+
+    translateX = e.clientX - startX;
+    translateY = e.clientY - startY;
+
+    imageViewer.style.transform =
+        `scale(2) translate(${translateX / 2}px, ${translateY / 2}px)`;
+});
+
+document.addEventListener("mouseup", () => {
+    isDragging = false;
+    if (imageViewer.classList.contains("zoomed")) {
+        imageViewer.style.cursor = "grab";
+    }
+});
+
+imageViewer.addEventListener("wheel", (e) => {
+    if (!imageViewer.classList.contains("zoomed")) return;
+
+    e.preventDefault(); // stop page scroll
+
+    translateX -= e.deltaX;
+    translateY -= e.deltaY;
+
+    imageViewer.style.transform =
+        `scale(2) translate(${translateX / 2}px, ${translateY / 2}px)`;
+}, { passive: false });
+
+imageViewer.addEventListener("click", () => {
+    if (!imageViewer.classList.contains("zoomed")) {
+        translateX = 0;
+        translateY = 0;
+        imageViewer.style.transform = "none";
+        imageViewer.style.cursor = "zoom-in";
+    }
+});

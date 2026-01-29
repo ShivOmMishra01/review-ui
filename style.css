@@ -57,11 +57,12 @@ body {
     transition: transform 0.25s ease, filter 0.2s ease;
 }
 
-/* Click zoom */
+
+
 #imageViewer.zoomed {
-    transform: scale(2);
-    cursor: zoom-out;
+    cursor: grab;
 }
+
 
 .image-footer {
     margin-top: 6px;
