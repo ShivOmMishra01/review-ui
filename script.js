@@ -3,27 +3,24 @@ let currentIndex = 0;
 let annotations = {};
 let originalSrc = null;
 
+let scale = 1;
+let translateX = 0;
+let translateY = 0;
+let isDragging = false;
+let dragMoved = false;
+let isZoomed = false;
+let startX = 0;
+let startY = 0;
+
+const imageStage = document.getElementById("imageStage");
 const imageViewer = document.getElementById("imageViewer");
-const imageLink = document.getElementById("imageLink");
-const counter = document.getElementById("counter");
-const status = document.getElementById("status");
 
-const scratch = document.getElementById("scratch");
-const crack = document.getElementById("crack");
-const needsReview = document.getElementById("needsReview");
-
-const brightness = document.getElementById("brightness");
-const contrast = document.getElementById("contrast");
-const saturation = document.getElementById("saturation");
-const gammaSlider = document.getElementById("gamma");
-
+/* ---------- CSV LOAD ---------- */
 document.getElementById("csvInput").addEventListener("change", e => {
     const file = e.target.files[0];
     if (!file) return;
 
-    status.textContent = "Loading CSV...";
     const reader = new FileReader();
-
     reader.onload = () => {
         images = reader.result
             .split(/\r?\n/)
@@ -31,77 +28,95 @@ document.getElementById("csvInput").addEventListener("change", e => {
             .filter(r => r.startsWith("http"));
 
         currentIndex = 0;
-        status.textContent = `Loaded ${images.length} images`;
         loadImage();
     };
-
     reader.readAsText(file);
 });
 
+/* ---------- IMAGE LOAD ---------- */
 function loadImage() {
+    resetView();
     const url = images[currentIndex];
     imageViewer.src = url;
-    imageViewer.classList.remove("zoomed");
-    imageLink.textContent = url;
-    imageLink.href = url;
-    counter.textContent = `${currentIndex + 1} / ${images.length}`;
-
-    const a = annotations[url] || {};
-    scratch.checked = a.scratch || false;
-    crack.checked = a.crack || false;
-    needsReview.checked = a.needsReview || false;
+    originalSrc = url;
 }
 
-imageViewer.onload = () => {
-    originalSrc = imageViewer.src;
-    applyFilters();
-};
+/* ---------- ZOOM (CLICK ONLY IF NOT DRAGGED) ---------- */
+imageStage.addEventListener("click", () => {
+    if (dragMoved) {
+        dragMoved = false;
+        return;
+    }
 
-function saveState() {
-    annotations[images[currentIndex]] = {
-        scratch: scratch.checked,
-        crack: crack.checked,
-        needsReview: needsReview.checked
-    };
+    isZoomed = !isZoomed;
+    scale = isZoomed ? 2 : 1;
+    translateX = translateY = 0;
+
+    imageStage.classList.toggle("zoomed", isZoomed);
+    applyTransform();
+});
+
+/* ---------- PAN ---------- */
+imageStage.addEventListener("mousedown", e => {
+    if (!isZoomed) return;
+
+    isDragging = true;
+    dragMoved = false;
+    startX = e.clientX - translateX;
+    startY = e.clientY - translateY;
+});
+
+document.addEventListener("mousemove", e => {
+    if (!isDragging) return;
+
+    dragMoved = true;
+    translateX = e.clientX - startX;
+    translateY = e.clientY - startY;
+
+    clampPan();
+    applyTransform();
+});
+
+document.addEventListener("mouseup", () => {
+    isDragging = false;
+});
+
+/* ---------- APPLY TRANSFORM ---------- */
+function applyTransform() {
+    imageStage.style.transform =
+        `translate(${translateX}px, ${translateY}px) scale(${scale})`;
 }
 
-[scratch, crack, needsReview].forEach(cb =>
-    cb.addEventListener("change", saveState)
-);
+/* ---------- CLAMP ---------- */
+function clampPan() {
+    const rect = imageStage.getBoundingClientRect();
+    const maxX = rect.width * (scale - 1) / 2;
+    const maxY = rect.height * (scale - 1) / 2;
 
-document.getElementById("nextBtn").onclick = () => {
-    saveState();
-    if (currentIndex < images.length - 1) {
-        currentIndex++;
-        loadImage();
-    }
-};
+    translateX = Math.max(-maxX, Math.min(maxX, translateX));
+    translateY = Math.max(-maxY, Math.min(maxY, translateY));
+}
 
-document.getElementById("prevBtn").onclick = () => {
-    saveState();
-    if (currentIndex > 0) {
-        currentIndex--;
-        loadImage();
-    }
-};
+/* ---------- RESET ---------- */
+function resetView() {
+    scale = 1;
+    translateX = translateY = 0;
+    isZoomed = false;
+    imageStage.classList.remove("zoomed");
+    imageStage.style.transform = "none";
+}
 
-/* Filters */
+/* ---------- FILTERS ---------- */
 function applyFilters() {
     imageViewer.style.filter = `
-    brightness(${brightness.value}%)
-    contrast(${contrast.value}%)
-    saturate(${saturation.value}%)
-  `;
+        brightness(${brightness.value}%)
+        contrast(${contrast.value}%)
+        saturate(${saturation.value}%)
+    `;
 }
 
-[brightness, contrast, saturation].forEach(sl =>
-    sl.addEventListener("input", applyFilters)
-);
-
-/* True gamma */
-gammaSlider.addEventListener("input", () => {
-    if (!originalSrc) return;
-
+/* ---------- TRUE GAMMA ---------- */
+gamma.addEventListener("input", () => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = originalSrc;
@@ -114,7 +129,7 @@ gammaSlider.addEventListener("input", () => {
         ctx.drawImage(img, 0, 0);
 
         const d = ctx.getImageData(0, 0, c.width, c.height);
-        const g = gammaSlider.value / 100;
+        const g = gamma.value / 100;
         const inv = 1 / g;
 
         for (let i = 0; i < d.data.length; i += 4) {
@@ -128,83 +143,9 @@ gammaSlider.addEventListener("input", () => {
     };
 });
 
-/* Reset */
-document.getElementById("resetFiltersBtn").onclick = () => {
-    brightness.value = contrast.value = saturation.value = gammaSlider.value = 100;
+/* ---------- RESET FILTERS ---------- */
+resetFiltersBtn.onclick = () => {
+    brightness.value = contrast.value = saturation.value = gamma.value = 100;
     imageViewer.src = originalSrc;
     imageViewer.style.filter = "none";
 };
-
-/* Click zoom */
-imageViewer.addEventListener("click", () => {
-    imageViewer.classList.toggle("zoomed");
-});
-
-/* Export */
-document.getElementById("downloadBtn").onclick = () => {
-    let csv = "image_url,scratch,crack,needs_review\n";
-    for (const [url, v] of Object.entries(annotations)) {
-        csv += `${url},${v.scratch || false},${v.crack || false},${v.needsReview || false}\n`;
-    }
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "audit_results.csv";
-    a.click();
-};
-
-let isDragging = false;
-let startX = 0;
-let startY = 0;
-let translateX = 0;
-let translateY = 0;
-
-// Mouse drag pan
-imageViewer.addEventListener("mousedown", (e) => {
-    if (!imageViewer.classList.contains("zoomed")) return;
-
-    isDragging = true;
-    startX = e.clientX - translateX;
-    startY = e.clientY - translateY;
-    imageViewer.style.cursor = "grabbing";
-});
-
-document.addEventListener("mousemove", (e) => {
-    if (!isDragging) return;
-    if (!imageViewer.classList.contains("zoomed")) return;
-
-    translateX = e.clientX - startX;
-    translateY = e.clientY - startY;
-
-    imageViewer.style.transform =
-        `scale(2) translate(${translateX / 2}px, ${translateY / 2}px)`;
-});
-
-document.addEventListener("mouseup", () => {
-    isDragging = false;
-    if (imageViewer.classList.contains("zoomed")) {
-        imageViewer.style.cursor = "grab";
-    }
-});
-
-imageViewer.addEventListener("wheel", (e) => {
-    if (!imageViewer.classList.contains("zoomed")) return;
-
-    e.preventDefault(); // stop page scroll
-
-    translateX -= e.deltaX;
-    translateY -= e.deltaY;
-
-    imageViewer.style.transform =
-        `scale(2) translate(${translateX / 2}px, ${translateY / 2}px)`;
-}, { passive: false });
-
-imageViewer.addEventListener("click", () => {
-    if (!imageViewer.classList.contains("zoomed")) {
-        translateX = 0;
-        translateY = 0;
-        imageViewer.style.transform = "none";
-        imageViewer.style.cursor = "zoom-in";
-    }
-});

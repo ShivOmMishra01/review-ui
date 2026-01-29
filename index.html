@@ -9,19 +9,18 @@
 
 <body>
 
-    <!-- Top Bar -->
     <header class="topbar">
-        <input type="file" id="csvInput" accept=".csv" />
+        <input type="file" id="csvInput" accept=".csv">
         <span id="status"></span>
     </header>
 
-    <!-- Main Layout -->
     <div class="workspace">
 
-        <!-- IMAGE PANEL -->
         <div class="image-panel">
             <div class="image-container">
-                <img id="imageViewer" />
+                <div id="imageStage">
+                    <img id="imageViewer" draggable="false" />
+                </div>
             </div>
 
             <div class="image-footer">
@@ -35,10 +34,9 @@
             </div>
         </div>
 
-        <!-- CONTROL PANEL -->
         <aside class="control-panel">
 
-            <h3>Annotations</h3>
+            <h3>Defects</h3>
             <label><input type="checkbox" id="scratch"> Scratch</label>
             <label><input type="checkbox" id="crack"> Crack</label>
             <label><input type="checkbox" id="needsReview"> Needs Review</label>
