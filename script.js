@@ -16,6 +16,17 @@ let startY = 0;
 let defectTypes = ["Scratch", "Crack", "Needs Review"];
 let defects = {}; // Store defect states per image
 
+// Filter state
+let filterState = {
+    brightness: 100,
+    contrast: 100,
+    saturation: 100,
+    gamma: 100
+};
+
+// Cache for gamma-corrected images
+let gammaCache = {};
+
 // DOM Elements
 const imageStage = document.getElementById("imageStage");
 const imageViewer = document.getElementById("imageViewer");
@@ -55,11 +66,26 @@ function setupEventListeners() {
     document.getElementById("prevBtn").addEventListener("click", () => navigate(-1));
     document.getElementById("nextBtn").addEventListener("click", () => navigate(1));
 
-    // Filters
-    brightness.addEventListener("input", updateBrightness);
-    contrast.addEventListener("input", updateContrast);
-    saturation.addEventListener("input", updateSaturation);
-    gamma.addEventListener("input", updateGamma);
+    // Filters with debouncing for performance
+    brightness.addEventListener("input", () => {
+        updateBrightness();
+        debouncedApplyFilters();
+    });
+
+    contrast.addEventListener("input", () => {
+        updateContrast();
+        debouncedApplyFilters();
+    });
+
+    saturation.addEventListener("input", () => {
+        updateSaturation();
+        debouncedApplyFilters();
+    });
+
+    gamma.addEventListener("input", () => {
+        updateGamma();
+        debouncedApplyGamma();
+    });
 
     // Buttons
     document.getElementById("resetFiltersBtn").addEventListener("click", resetFilters);
@@ -72,6 +98,23 @@ function setupEventListeners() {
         if (e.key === 'Enter') addNewDefect();
     });
 }
+
+// Debounce function for better performance
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Create debounced versions
+const debouncedApplyFilters = debounce(applyAllFilters, 50);
+const debouncedApplyGamma = debounce(applyGammaCorrection, 100);
 
 /* ---------- CSV LOAD ---------- */
 function handleCSVLoad(e) {
@@ -98,6 +141,7 @@ function handleCSVLoad(e) {
 
         currentIndex = 0;
         defects = {}; // Reset defects for new CSV
+        gammaCache = {}; // Clear gamma cache
         updateStatus(`Loaded ${images.length} images`);
         loadImage();
     };
@@ -116,19 +160,31 @@ function loadImage() {
 
     updateStatus(`Loading image ${currentIndex + 1}/${images.length}...`);
 
-    imageViewer.onload = () => {
+    // Create an offscreen image for preloading
+    const preloadImg = new Image();
+    preloadImg.crossOrigin = "anonymous";
+
+    preloadImg.onload = () => {
+        // Set the displayed image
+        imageViewer.src = url;
+        originalSrc = url;
+
+        // Reset gamma cache for this image
+        gammaCache[url] = null;
+
         updateStatus(`Image ${currentIndex + 1}/${images.length} loaded`);
         updateUI();
+        resetFilters(); // Apply default filters
     };
 
-    imageViewer.onerror = () => {
+    preloadImg.onerror = () => {
         updateStatus('Failed to load image', 'error');
         imageViewer.src = '';
+        originalSrc = null;
         updateUI();
     };
 
-    imageViewer.src = url;
-    originalSrc = url;
+    preloadImg.src = url;
 }
 
 function updateUI() {
@@ -146,9 +202,6 @@ function updateUI() {
 
     // Update annotations display
     updateCurrentAnnotations();
-
-    // Reset filters to default
-    resetFilters();
 }
 
 /* ---------- ZOOM & PAN ---------- */
@@ -363,80 +416,176 @@ function removeDefectFromCurrent(defectType) {
     }
 }
 
-/* ---------- IMAGE FILTERS ---------- */
+/* ---------- IMAGE FILTERS (OPTIMIZED) ---------- */
 function updateBrightness() {
-    brightnessValue.textContent = `${brightness.value}%`;
-    applyFilters();
+    filterState.brightness = parseInt(brightness.value);
+    brightnessValue.textContent = `${filterState.brightness}%`;
 }
 
 function updateContrast() {
-    contrastValue.textContent = `${contrast.value}%`;
-    applyFilters();
+    filterState.contrast = parseInt(contrast.value);
+    contrastValue.textContent = `${filterState.contrast}%`;
 }
 
 function updateSaturation() {
-    saturationValue.textContent = `${saturation.value}%`;
-    applyFilters();
+    filterState.saturation = parseInt(saturation.value);
+    saturationValue.textContent = `${filterState.saturation}%`;
 }
 
 function updateGamma() {
-    gammaValue.textContent = `${gamma.value}%`;
-    applyTrueGamma();
+    filterState.gamma = parseInt(gamma.value);
+    gammaValue.textContent = `${filterState.gamma}%`;
 }
 
-function applyFilters() {
+// Apply CSS filters (brightness, contrast, saturation)
+function applyCSSFilters() {
     imageViewer.style.filter = `
-        brightness(${brightness.value}%)
-        contrast(${contrast.value}%)
-        saturate(${saturation.value}%)
+        brightness(${filterState.brightness}%)
+        contrast(${filterState.contrast}%)
+        saturate(${filterState.saturation}%)
     `;
 }
 
-function applyTrueGamma() {
+// Apply gamma correction using canvas (with caching)
+function applyGammaCorrection() {
+    const currentUrl = images[currentIndex];
+    if (!currentUrl || filterState.gamma === 100) {
+        // Reset to original if gamma is 100%
+        imageViewer.src = originalSrc;
+        applyCSSFilters();
+        return;
+    }
+
+    // Check cache first
+    const cacheKey = `${currentUrl}_${filterState.gamma}`;
+    if (gammaCache[cacheKey]) {
+        imageViewer.src = gammaCache[cacheKey];
+        applyCSSFilters();
+        return;
+    }
+
+    // Create offscreen canvas for gamma correction
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = originalSrc;
+    img.src = currentUrl;
 
     img.onload = () => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        ctx.drawImage(img, 0, 0);
 
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const g = gamma.value / 100;
+        // Limit canvas size for performance
+        const maxDimension = 2000;
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+
+        if (width > maxDimension || height > maxDimension) {
+            const ratio = Math.min(maxDimension / width, maxDimension / height);
+            width = Math.floor(width * ratio);
+            height = Math.floor(height * ratio);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw image to canvas
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Apply gamma correction
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+        const g = filterState.gamma / 100;
         const inv = 1 / g;
 
-        for (let i = 0; i < imageData.data.length; i += 4) {
-            imageData.data[i] = 255 * Math.pow(imageData.data[i] / 255, inv);
-            imageData.data[i + 1] = 255 * Math.pow(imageData.data[i + 1] / 255, inv);
-            imageData.data[i + 2] = 255 * Math.pow(imageData.data[i + 2] / 255, inv);
+        // Use lookup table for performance
+        const lut = new Array(256);
+        for (let i = 0; i < 256; i++) {
+            lut[i] = Math.pow(i / 255, inv) * 255;
+        }
+
+        // Apply gamma using lookup table
+        for (let i = 0; i < data.length; i += 4) {
+            data[i] = lut[data[i]];     // R
+            data[i + 1] = lut[data[i + 1]]; // G
+            data[i + 2] = lut[data[i + 2]]; // B
         }
 
         ctx.putImageData(imageData, 0, 0);
-        imageViewer.src = canvas.toDataURL();
+
+        // Cache the result
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        gammaCache[cacheKey] = dataUrl;
+
+        // Apply to image
+        imageViewer.src = dataUrl;
+
+        // Apply CSS filters on top
+        setTimeout(() => applyCSSFilters(), 10);
     };
 }
 
+// Apply all filters together
+function applyAllFilters() {
+    if (filterState.gamma === 100) {
+        // If gamma is 100%, just use CSS filters on original
+        imageViewer.src = originalSrc;
+        applyCSSFilters();
+    } else {
+        // Apply gamma correction first, then CSS filters
+        applyGammaCorrection();
+    }
+}
+
 function resetFilters() {
+    // Reset filter state
+    filterState = {
+        brightness: 100,
+        contrast: 100,
+        saturation: 100,
+        gamma: 100
+    };
+
+    // Reset UI controls
     brightness.value = 100;
     contrast.value = 100;
     saturation.value = 100;
     gamma.value = 100;
 
+    // Reset display values
     brightnessValue.textContent = "100%";
     contrastValue.textContent = "100%";
     saturationValue.textContent = "100%";
     gammaValue.textContent = "100%";
 
+    // Reset image
     imageViewer.src = originalSrc;
     imageViewer.style.filter = "none";
+
+    // Clear gamma cache for current image
+    const currentUrl = images[currentIndex];
+    if (currentUrl) {
+        Object.keys(gammaCache).forEach(key => {
+            if (key.startsWith(currentUrl)) {
+                delete gammaCache[key];
+            }
+        });
+    }
 }
 
 /* ---------- NAVIGATION ---------- */
 function navigate(direction) {
     if (images.length === 0) return;
+
+    // Save current filter state before navigating
+    const currentUrl = images[currentIndex];
+    if (currentUrl) {
+        // Cache the gamma-corrected version if needed
+        if (filterState.gamma !== 100) {
+            const cacheKey = `${currentUrl}_${filterState.gamma}`;
+            if (!gammaCache[cacheKey] && imageViewer.src.startsWith('data:')) {
+                gammaCache[cacheKey] = imageViewer.src;
+            }
+        }
+    }
 
     currentIndex += direction;
 
