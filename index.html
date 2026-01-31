@@ -3,67 +3,155 @@
 
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Audit Dashboard</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
 
     <header class="topbar">
-        <input type="file" id="csvInput" accept=".csv">
-        <span id="status"></span>
+        <div class="topbar-left">
+            <h1><i class="fas fa-images"></i> Image Audit Dashboard</h1>
+        </div>
+        <div class="topbar-right">
+            <div class="file-upload">
+                <label for="csvInput" class="btn btn-secondary">
+                    <i class="fas fa-file-import"></i> Load CSV
+                </label>
+                <input type="file" id="csvInput" accept=".csv" hidden>
+            </div>
+            <span id="status" class="status-indicator">
+                <i class="fas fa-circle"></i> Ready
+            </span>
+        </div>
     </header>
 
     <div class="workspace">
 
         <div class="image-panel">
+            <div class="panel-header">
+                <h2>Image Viewer</h2>
+                <div class="image-info">
+                    <span id="counter">0 / 0</span>
+                    <div class="zoom-indicator">
+                        <i class="fas fa-search"></i>
+                        <span id="zoomLevel">100%</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="image-container">
                 <div id="imageStage">
                     <img id="imageViewer" draggable="false" />
+                    <div class="zoom-hint">
+                        <i class="fas fa-mouse-pointer"></i> Click to zoom | Drag when zoomed
+                    </div>
                 </div>
             </div>
 
             <div class="image-footer">
-                <span id="counter"></span>
-                <a id="imageLink" target="_blank"></a>
+                <div class="image-url">
+                    <i class="fas fa-link"></i>
+                    <a id="imageLink" target="_blank" class="truncate"></a>
+                </div>
+                <button id="openOriginalBtn" class="btn btn-small">
+                    <i class="fas fa-external-link-alt"></i> Open Original
+                </button>
             </div>
 
             <div class="nav">
-                <button id="prevBtn">◀ Prev</button>
-                <button id="nextBtn">Next ▶</button>
+                <button id="prevBtn" class="btn btn-primary">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </button>
+                <button id="nextBtn" class="btn btn-primary">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
             </div>
         </div>
 
         <aside class="control-panel">
+            <div class="panel-section">
+                <h3><i class="fas fa-bug"></i> Defects</h3>
+                <div class="defects-controls">
+                    <div class="add-defect-form">
+                        <input type="text" id="newDefectInput" placeholder="Add new defect type" maxlength="50">
+                        <button id="addDefectBtn" class="btn btn-small">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
+                    <div id="defectList" class="defect-list">
+                        <!-- Defect checkboxes will be generated here -->
+                    </div>
+                </div>
+            </div>
 
-            <h3>Defects</h3>
-            <label><input type="checkbox" id="scratch"> Scratch</label>
-            <label><input type="checkbox" id="crack"> Crack</label>
-            <label><input type="checkbox" id="needsReview"> Needs Review</label>
+            <div class="panel-section">
+                <h3><i class="fas fa-sliders-h"></i> Image Adjustments</h3>
 
-            <h3>Image Adjustments</h3>
+                <div class="slider-control">
+                    <label>
+                        <span class="slider-label">
+                            <i class="fas fa-sun"></i> Brightness
+                            <span id="brightnessValue" class="slider-value">100%</span>
+                        </span>
+                        <input type="range" id="brightness" min="50" max="150" value="100" class="slider">
+                    </label>
+                </div>
 
-            <label>Brightness
-                <input type="range" id="brightness" min="50" max="150" value="100">
-            </label>
+                <div class="slider-control">
+                    <label>
+                        <span class="slider-label">
+                            <i class="fas fa-adjust"></i> Contrast
+                            <span id="contrastValue" class="slider-value">100%</span>
+                        </span>
+                        <input type="range" id="contrast" min="50" max="150" value="100" class="slider">
+                    </label>
+                </div>
 
-            <label>Contrast
-                <input type="range" id="contrast" min="50" max="150" value="100">
-            </label>
+                <div class="slider-control">
+                    <label>
+                        <span class="slider-label">
+                            <i class="fas fa-palette"></i> Saturation
+                            <span id="saturationValue" class="slider-value">100%</span>
+                        </span>
+                        <input type="range" id="saturation" min="0" max="200" value="100" class="slider">
+                    </label>
+                </div>
 
-            <label>Saturation
-                <input type="range" id="saturation" min="0" max="200" value="100">
-            </label>
+                <div class="slider-control">
+                    <label>
+                        <span class="slider-label">
+                            <i class="fas fa-wave-square"></i> Gamma
+                            <span id="gammaValue" class="slider-value">100%</span>
+                        </span>
+                        <input type="range" id="gamma" min="50" max="200" value="100" class="slider">
+                    </label>
+                </div>
 
-            <label>Gamma
-                <input type="range" id="gamma" min="50" max="200" value="100">
-            </label>
+                <button id="resetFiltersBtn" class="btn btn-secondary">
+                    <i class="fas fa-redo"></i> Reset All Filters
+                </button>
+            </div>
 
-            <button id="resetFiltersBtn">Reset Filters</button>
+            <div class="panel-section">
+                <h3><i class="fas fa-file-export"></i> Export</h3>
+                <button id="downloadBtn" class="btn btn-primary">
+                    <i class="fas fa-download"></i> Download Annotated CSV
+                </button>
+                <div class="export-info">
+                    <i class="fas fa-info-circle"></i>
+                    Includes all defects and annotations
+                </div>
+            </div>
 
-            <h3>Export</h3>
-            <button id="downloadBtn">Download CSV</button>
-
+            <div class="panel-section">
+                <h3><i class="fas fa-history"></i> Current Annotations</h3>
+                <div id="currentAnnotations" class="annotations-list">
+                    No annotations yet
+                </div>
+            </div>
         </aside>
 
     </div>
