@@ -242,11 +242,54 @@ body {
     gap: 12px;
     border-top: 1px solid #e2e8f0;
     background: white;
+    align-items: center;
 }
 
 .nav button {
     flex: 1;
     justify-content: center;
+}
+
+.jump-to {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+#jumpInput {
+    width: 80px;
+    padding: 7px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: center;
+    transition: border-color 0.2s ease;
+    /* hide number spinners */
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+#jumpInput::-webkit-outer-spin-button,
+#jumpInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#jumpInput:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+#jumpBtn {
+    background: #64748b;
+    color: white;
+    flex-shrink: 0;
+}
+
+#jumpBtn:hover {
+    background: #475569;
 }
 
 /* Control panel */

@@ -66,6 +66,16 @@ function setupEventListeners() {
     document.getElementById("prevBtn").addEventListener("click", () => navigate(-1));
     document.getElementById("nextBtn").addEventListener("click", () => navigate(1));
 
+    // Keyboard arrow key navigation
+    document.addEventListener("keydown", (e) => {
+        // Skip if user is typing in an input/textarea
+        const tag = document.activeElement.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+        if (e.key === "ArrowLeft") navigate(-1);
+        else if (e.key === "ArrowRight") navigate(1);
+    });
+
     // Filters with debouncing for performance
     brightness.addEventListener("input", () => {
         updateBrightness();
@@ -85,6 +95,12 @@ function setupEventListeners() {
     gamma.addEventListener("input", () => {
         updateGamma();
         debouncedApplyGamma();
+    });
+
+    // Jump to image
+    document.getElementById("jumpBtn").addEventListener("click", jumpToImage);
+    document.getElementById("jumpInput").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") jumpToImage();
     });
 
     // Buttons
@@ -205,6 +221,10 @@ function updateUI() {
 }
 
 /* ---------- ZOOM & PAN ---------- */
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 5;
+
+// Click to toggle zoom (reset / 2x)
 imageStage.addEventListener("click", () => {
     if (dragMoved) {
         dragMoved = false;
@@ -219,6 +239,33 @@ imageStage.addEventListener("click", () => {
     zoomLevel.textContent = `${Math.round(scale * 100)}%`;
     applyTransform();
 });
+
+// Scroll-wheel zoom (clamped within image container)
+imageStage.addEventListener("wheel", (e) => {
+    e.preventDefault();
+
+    const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * zoomFactor));
+
+    if (newScale === scale) return;
+
+    // Zoom toward mouse cursor position
+    const rect = imageStage.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left - rect.width / 2;
+    const mouseY = e.clientY - rect.top - rect.height / 2;
+    const scaleRatio = newScale / scale;
+
+    translateX = mouseX - scaleRatio * (mouseX - translateX);
+    translateY = mouseY - scaleRatio * (mouseY - translateY);
+
+    scale = newScale;
+    isZoomed = scale > 1;
+    imageStage.classList.toggle("zoomed", isZoomed);
+    zoomLevel.textContent = `${Math.round(scale * 100)}%`;
+
+    clampPan();
+    applyTransform();
+}, { passive: false });
 
 imageStage.addEventListener("mousedown", e => {
     if (!isZoomed) return;
@@ -593,6 +640,20 @@ function navigate(direction) {
     if (currentIndex < 0) currentIndex = images.length - 1;
     if (currentIndex >= images.length) currentIndex = 0;
 
+    loadImage();
+}
+
+function jumpToImage() {
+    const input = document.getElementById("jumpInput");
+    const num = parseInt(input.value, 10);
+
+    if (isNaN(num) || num < 1 || num > images.length) {
+        showAlert(`Enter a number between 1 and ${images.length}`, 'warning');
+        return;
+    }
+
+    currentIndex = num - 1;
+    input.value = "";
     loadImage();
 }
 

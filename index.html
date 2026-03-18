@@ -45,9 +45,6 @@
             <div class="image-container">
                 <div id="imageStage">
                     <img id="imageViewer" draggable="false" />
-                    <div class="zoom-hint">
-                        <i class="fas fa-mouse-pointer"></i> Click to zoom | Drag when zoomed
-                    </div>
                 </div>
             </div>
 
@@ -65,6 +62,13 @@
                 <button id="prevBtn" class="btn btn-primary">
                     <i class="fas fa-chevron-left"></i> Previous
                 </button>
+                <div class="jump-to">
+                    <input type="number" id="jumpInput" min="1" placeholder="# Image"
+                        title="Type image number and press Enter">
+                    <button id="jumpBtn" class="btn btn-small">
+                        <i class="fas fa-location-arrow"></i> Go
+                    </button>
+                </div>
                 <button id="nextBtn" class="btn btn-primary">
                     Next <i class="fas fa-chevron-right"></i>
                 </button>
